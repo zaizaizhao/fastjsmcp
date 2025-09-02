@@ -120,14 +120,15 @@ export class FastMCP {
     }
   }
 
-  /**
-   * Instance decorator for tools - allows @mcp.tool usage on functions
-   */
+ /**
+ * Instance decorator for tools - allows @mcp.tool usage on class methods
+ * and higher-order function usage on standalone functions
+ */
   tool: ToolDecorator = (options?) => {
     return (target: Function, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
       // Handle function decoration
       if (typeof target === 'function' && !propertyKey) {
-        const toolName = options?.name || target.name;
+        const toolName = options?.name || target.name || `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const toolSchema = {
           description: options?.description || `Tool: ${toolName}`,
           inputSchema: options?.inputSchema || { type: 'object', properties: {}, additionalProperties: true },
@@ -170,7 +171,7 @@ export class FastMCP {
     return (target: Function, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
       // Handle function decoration
       if (typeof target === 'function' && !propertyKey) {
-        const resourceUri = options?.uri || target.name;
+        const resourceUri = options?.uri || target.name || `resource_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
         this.registerResource(resourceUri, target as ResourceHandler, {
           name: options?.name,
@@ -211,7 +212,7 @@ export class FastMCP {
     return (target: Function, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
       // Handle function decoration
       if (typeof target === 'function' && !propertyKey) {
-        const promptName = options?.name || target.name;
+        const promptName = options?.name || target.name || `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         
         this.registerPrompt(promptName, target as PromptHandler, {
           description: options?.description,
@@ -247,6 +248,16 @@ export class FastMCP {
    * Register a tool programmatically
    */
   registerTool(name: string, handler: ToolHandler, schema: ToolSchema): void {
+    if (!name || typeof name !== 'string') {
+      throw new Error('Tool name must be a non-empty string');
+    }
+    if (!handler || typeof handler !== 'function') {
+      throw new Error('Tool handler must be a function');
+    }
+    if (!schema) {
+      throw new Error('Tool schema is required');
+    }
+    
     this.registry.tools.set(name, {
       name,
       schema,

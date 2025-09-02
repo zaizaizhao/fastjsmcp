@@ -325,7 +325,7 @@ class ComprehensiveServer {
 }
 
 // Example usage
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   const server = new FastMCP({
     name: 'comprehensive-server',
     version: '1.0.0',

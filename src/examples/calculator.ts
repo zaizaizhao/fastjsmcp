@@ -124,7 +124,7 @@ class CalculatorServer {
 }
 
 // Example usage
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   const server = new FastMCP({
     name: 'calculator-server',
     version: '1.0.0',
