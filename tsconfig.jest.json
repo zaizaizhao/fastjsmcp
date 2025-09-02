@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "node16",
+    "target": "ES2022",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node16",
+    "isolatedModules": true
+  },
+  "include": [
+    "tests/**/*",
+    "src/**/*"
+  ]
+}

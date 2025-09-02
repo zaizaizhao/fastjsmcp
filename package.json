@@ -1,0 +1,65 @@
+{
+  "name": "fastjsmcp",
+  "version": "1.0.0",
+  "description": "FastMCP JavaScript implementation - A fast and easy way to build MCP servers",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "fastmcp": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "check": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.4",
+    "commander": "^14.0.0",
+    "dotenv": "^17.2.1",
+    "reflect-metadata": "^0.2.2",
+    "winston": "^3.17.0",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^22.15.30",
+    "eslint": "^9.25.0",
+    "globals": "^16.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
+    "tsx": "^4.20.3",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.30.1"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "llm",
+    "server",
+    "typescript",
+    "nodejs"
+  ],
+  "author": "FastMCP Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fastmcp/fastmcp-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fastmcp/fastmcp-js/issues"
+  },
+  "homepage": "https://gofastmcp.com",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
