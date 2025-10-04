@@ -152,35 +152,6 @@ export function throttle<T extends (...args: any[]) => any>(
 }
 
 /**
- * Simple logger utility
- */
-export class Logger {
-  private prefix: string;
-  
-  constructor(prefix: string = 'FastMCP') {
-    this.prefix = prefix;
-  }
-  
-  info(message: string, ...args: any[]): void {
-    console.log(`[${this.prefix}] INFO: ${message}`, ...args);
-  }
-  
-  warn(message: string, ...args: any[]): void {
-    console.warn(`[${this.prefix}] WARN: ${message}`, ...args);
-  }
-  
-  error(message: string, ...args: any[]): void {
-    console.error(`[${this.prefix}] ERROR: ${message}`, ...args);
-  }
-  
-  debug(message: string, ...args: any[]): void {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug(`[${this.prefix}] DEBUG: ${message}`, ...args);
-    }
-  }
-}
-
-/**
  * Generate a unique ID
  */
 export function generateId(): string {
@@ -192,6 +163,81 @@ export function generateId(): string {
  */
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Name validation error class
+ */
+export class NameValidationError extends Error {
+  constructor(message: string, public code: string) {
+    super(message);
+    this.name = 'NameValidationError';
+  }
+}
+
+/**
+ * Validate name according to FastMCP naming rules
+ * 
+ * Rules:
+ * 1. 名称不能包含特殊字符 ￥?!$%~*?!><
+ * 2. 中文名称(包括简体和繁体)中不得包含空格、换行符
+ * 3. 仅为中文字符时，开始或结束不得含有。.
+ * 4. 不能全为数字
+ * 5. 支持中英文括号、支持输入-
+ * 6. 不能全为相同字符
+ */
+export function validateName(name: string): void {
+  if (!name || typeof name !== 'string') {
+    throw new NameValidationError('名称不能为空', 'EMPTY_NAME');
+  }
+
+  // 规则1: 不能包含特殊字符 ￥?!$%~*?!><
+  const forbiddenChars = /[￥?!$%~*><]/;
+  if (forbiddenChars.test(name)) {
+    throw new NameValidationError('名称不能包含特殊字符 ￥?!$%~*?!><', 'FORBIDDEN_CHARS');
+  }
+
+  // 规则3: 仅为中文字符时，开始或结束不得含有。. (需要在规则5之前检查)
+  // 检查去掉句号后是否为纯中文
+  const nameWithoutPeriods = name.replace(/[。.]/g, '');
+  const isOnlyChineseWithoutPeriods = /^[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]+$/.test(nameWithoutPeriods);
+  if (isOnlyChineseWithoutPeriods && nameWithoutPeriods.length === name.length - (name.match(/[。.]/g) || []).length) {
+    if (name.startsWith('。') || name.endsWith('。')) {
+      throw new NameValidationError('纯中文名称开始或结束不得含有句号', 'CHINESE_WITH_PERIOD');
+    }
+  }
+
+  // 规则2: 中文名称中不得包含空格、换行符
+  const hasChinese = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/.test(name);
+  if (hasChinese && /[\s\n\r\t]/.test(name)) {
+    throw new NameValidationError('中文名称中不得包含空格、换行符', 'CHINESE_WITH_WHITESPACE');
+  }
+
+  // 规则4: 不能全为数字 (长度大于1时)
+  if (name.length > 1 && /^\d+$/.test(name)) {
+    throw new NameValidationError('名称不能全为数字', 'ALL_DIGITS');
+  }
+
+  // 规则6: 不能全为相同字符 (需要在规则4之后检查，避免与全数字规则冲突)
+  if (name.length > 1 && new Set(name).size === 1) {
+    throw new NameValidationError('名称不能全为相同字符', 'ALL_SAME_CHARS');
+  }
+
+  // 规则5: 检查是否只包含允许的字符（中英文、数字、中英文括号、连字符、句号）
+  const allowedChars = /^[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaffa-zA-Z0-9()（）\-_。.]+$/;
+  if (!allowedChars.test(name)) {
+    throw new NameValidationError('名称只能包含中英文字符、数字、括号、连字符和句号', 'INVALID_CHARS');
+  }
+}
+
+/**
+ * Create name validation regex (for reference)
+ * This is a comprehensive regex that combines all the rules
+ */
+export function createNameValidationRegex(): RegExp {
+  // 这个正则表达式组合了所有验证规则
+  // 注意：复杂的逻辑验证（如全为相同字符）仍需要额外的函数检查
+  return /^(?!\d+$)(?![。])(?!.*[￥?!$%~*><])(?!.*[\s\n\r\t].*[\u4e00-\u9fff])[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaffa-zA-Z0-9()（）\-_]+(?<![。])$/;
 }
 
 /**

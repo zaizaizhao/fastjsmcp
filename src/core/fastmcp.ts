@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -8,7 +9,8 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import winston from 'winston';
+import { Logger } from '../utils/logger.js';
+import { isPlainObject, validateName } from '../utils/index.js';
 import type {
   FastMCPOptions,
   ServerRegistry,
@@ -34,7 +36,7 @@ import {
 export class FastMCP {
   private server: Server;
   private registry: ServerRegistry;
-  private logger: winston.Logger;
+  private logger: Logger;
   private options: FastMCPOptions;
   private transport?: Transport;
 
@@ -47,14 +49,10 @@ export class FastMCP {
     };
 
     // Initialize logger
-    this.logger = winston.createLogger({
+    this.logger = new Logger({
       level: options.logging?.level || 'info',
-      format: options.logging?.format === 'json' 
-        ? winston.format.json()
-        : winston.format.simple(),
-      transports: [
-        new winston.transports.Console(),
-      ],
+      format: options.logging?.format || 'simple',
+      prefix: options.name || 'FastMCP',
     });
 
     // Initialize MCP server
@@ -251,6 +249,10 @@ export class FastMCP {
     if (!name || typeof name !== 'string') {
       throw new Error('Tool name must be a non-empty string');
     }
+    
+    // Validate tool name according to FastMCP naming rules
+    validateName(name);
+    
     if (!handler || typeof handler !== 'function') {
       throw new Error('Tool handler must be a function');
     }
@@ -278,6 +280,15 @@ export class FastMCP {
       mimeType?: string;
     }
   ): void {
+    if (!uri || typeof uri !== 'string') {
+      throw new Error('Resource URI must be a non-empty string');
+    }
+    
+    // Validate resource name if provided
+    if (options?.name) {
+      validateName(options.name);
+    }
+    
     this.registry.resources.set(uri, {
       uri,
       name: options?.name,
@@ -299,6 +310,17 @@ export class FastMCP {
       arguments?: any;
     }
   ): void {
+    if (!name || typeof name !== 'string') {
+      throw new Error('Prompt name must be a non-empty string');
+    }
+    
+    // Validate prompt name according to FastMCP naming rules
+    validateName(name);
+    
+    if (!handler || typeof handler !== 'function') {
+      throw new Error('Prompt handler must be a function');
+    }
+    
     this.registry.prompts.set(name, {
       name,
       description: options?.description,
