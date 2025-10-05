@@ -11,20 +11,16 @@ import {
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Logger } from '../utils/logger.js';
-import { isPlainObject, validateName } from '../utils/index.js';
+import { validateName } from '../utils/index.js';
 import { TransportFactory } from '../transport/index.js';
 import {
   type FastMCPOptions,
   type ServerRegistry,
-  type ToolMetadata,
-  type ResourceMetadata,
-  type PromptMetadata,
   type ToolHandler,
   type ResourceHandler,
   type PromptHandler,
   type ToolSchema,
   type ExecutionContext,
-  type Transport,
   type ToolDecorator,
   type ResourceDecorator,
   type PromptDecorator,
@@ -387,10 +383,12 @@ export class FastMCP {
       }
       
       if (transportOptions.type === TransportType.SSE) {
-        // SSE 传输需要 HTTP 服务器支持，这里提供配置信息
-        this.logger.info(`SSE transport configured for ${transportOptions.host}:${transportOptions.port}`);
-        this.logger.info('Note: SSE transport requires HTTP server setup. Please use TransportFactory.createSSETransport() with your HTTP server.');
-        throw new Error('SSE transport requires HTTP server setup. Please refer to documentation for SSE server implementation.');
+        // SSE transport is no longer recommended by MCP official
+        this.logger.warn(`SSE transport configured for ${transportOptions.host}:${transportOptions.port}`);
+        this.logger.warn('⚠️  DEPRECATION NOTICE: MCP officially no longer encourages using SSE connections.');
+        this.logger.info('💡 RECOMMENDED: Please consider using streamable transport instead for better performance and compatibility.');
+        this.logger.info('📖 For migration guidance, please refer to the streamable transport documentation.');
+        throw new Error('SSE transport is deprecated. MCP officially recommends using streamable transport instead. Please refer to the streamable transport documentation for migration guidance.');
       } else {
         // 使用 stdio 传输
         this.transport = TransportFactory.create(transportOptions) as StdioServerTransport;
