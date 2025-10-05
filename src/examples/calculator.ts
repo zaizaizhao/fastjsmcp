@@ -66,7 +66,9 @@ class CalculatorServer {
     name: 'calculate',
     description: 'Perform a calculation with an expression',
     inputSchema: Schema.object({
-      expression: Schema.string(),
+      operation: Schema.string().describe("运算操作类型 (add, subtract, multiply, divide)"),
+      a: Schema.number().describe("第一个数字"),
+      b: Schema.number().describe("第二个数字"),
     }),
   })
   async calculate(args: { operation: string; a: number; b: number }, context: ExecutionContext) {

@@ -40,6 +40,7 @@ import {
   prompt as corePromptDecorator,
 } from '../decorators/index.js';
 import { startStreamableMcpServer } from '../transport/streamable.js';
+import zodToJsonSchema from 'zod-to-json-schema';
 
 export class FastMCP {
   private server: Server;
@@ -357,23 +358,8 @@ export class FastMCP {
   }
 
   private zodToJsonSchema(schema: any): any {
-    // Simple Zod to JSON Schema conversion
-    // This is a basic implementation - you might want to use a proper library
-    if (schema._def) {
-      const def = schema._def;
-      if (def.typeName === 'ZodObject') {
-        return {
-          type: 'object',
-          properties: Object.fromEntries(
-            Object.entries(def.shape()).map(([key, value]: [string, any]) => [
-              key,
-              this.zodToJsonSchema(value),
-            ])
-          ),
-        };
-      }
-    }
-    return { type: 'object', additionalProperties: true };
+    // Use the zodToJsonSchema function from utils (now using zod-to-json-schema library)
+    return zodToJsonSchema(schema);
   }
 
   async run(): Promise<void> {

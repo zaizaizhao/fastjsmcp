@@ -1,51 +1,11 @@
 import { z } from 'zod';
+import { zodToJsonSchema as zodToJsonSchemaLib } from 'zod-to-json-schema';
 
 /**
  * Utility functions for FastMCP
  */
 
 /**
- * Convert Zod schema to JSON Schema (simplified version)
- */
-export function zodToJsonSchema(schema: z.ZodType): any {
-  // This is a simplified implementation
-  // In a real implementation, you might want to use a library like zod-to-json-schema
-  
-  const schemaType = (schema as any)._def?.typeName;
-  
-  switch (schemaType) {
-    case 'ZodString':
-      return { type: 'string' };
-    case 'ZodNumber':
-      return { type: 'number' };
-    case 'ZodBoolean':
-      return { type: 'boolean' };
-    case 'ZodArray':
-      return {
-        type: 'array',
-        items: zodToJsonSchema((schema as any)._def.type)
-      };
-    case 'ZodObject':
-      const properties: Record<string, any> = {};
-      const required: string[] = [];
-      
-      for (const [key, value] of Object.entries((schema as any)._def.shape())) {
-        properties[key] = zodToJsonSchema(value as z.ZodType);
-        if ((value as any)._def?.typeName !== 'ZodOptional') {
-          required.push(key);
-        }
-      }
-      
-      return {
-        type: 'object',
-        properties,
-        required: required.length > 0 ? required : undefined
-      };
-    default:
-      // Fallback for other types
-      return { type: 'any' };
-  }
-}
 
 /**
  * Validate and parse arguments using Zod schema
