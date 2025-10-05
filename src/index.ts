@@ -11,6 +11,7 @@ export { tool, resource, prompt, Schema } from './decorators/index.js';
 
 // Transport exports
 export { TransportFactory, StdioServerTransport, SSEServerTransport } from './transport/index.js';
+export { startStreamableMcpServer } from './transport/streamable.js';
 
 // Utility exports
 export * from './utils/index.js';

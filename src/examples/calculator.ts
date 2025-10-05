@@ -1,4 +1,4 @@
-import { FastMCP, tool, Schema } from '../index.js';
+import { FastMCP, tool, Schema, TransportType } from '../index.js';
 import type { ExecutionContext } from '../types/index.js';
 
 /**
@@ -9,8 +9,8 @@ class CalculatorServer {
     name: 'add',
     description: 'Add two numbers',
     inputSchema: Schema.object({
-      a: Schema.number(),
-      b: Schema.number(),
+      a: Schema.number().describe("传入数字a"),
+      b: Schema.number().describe("传入数字b"),
     }),
   })
   async add(args: { a: number; b: number }, context: ExecutionContext) {
@@ -27,8 +27,8 @@ class CalculatorServer {
     name: 'subtract',
     description: 'Subtract two numbers',
     inputSchema: Schema.object({
-      a: Schema.number(),
-      b: Schema.number(),
+      a: Schema.number().describe("传入数字a"),
+      b: Schema.number().describe("传入数字b"),
     }),
   })
   async subtract(args: { a: number; b: number }) {
@@ -124,17 +124,20 @@ class CalculatorServer {
 }
 
 // Example usage
-// if (import.meta.url === `file://${process.argv[1]}`) {
-//   const server = new FastMCP({
-//     name: 'calculator-server',
-//     version: '1.0.0',
-//     logging: {
-//       level: 'info',
-//     },
-//   });
+if (import.meta.url.endsWith(process.argv[1]?.replace(/\\/g, '/'))) {
+  const server = new FastMCP({
+    name: 'calculator-server',
+    version: '1.0.0',
+    transport: {
+      type: TransportType.Streamable,
+      port: 3322,
+      host: 'localhost',
+      endpoint: '/mcp',
+    },
+  });
 
-//   server.register(new CalculatorServer());
-//   server.run().catch(console.error);
-// }
+  server.register(new CalculatorServer());
+  server.run().catch(console.error);
+}
 
 export { CalculatorServer };

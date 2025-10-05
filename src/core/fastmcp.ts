@@ -13,21 +13,22 @@ import {
 import { Logger } from '../utils/logger.js';
 import { isPlainObject, validateName } from '../utils/index.js';
 import { TransportFactory } from '../transport/index.js';
-import type {
-  FastMCPOptions,
-  ServerRegistry,
-  ToolMetadata,
-  ResourceMetadata,
-  PromptMetadata,
-  ToolHandler,
-  ResourceHandler,
-  PromptHandler,
-  ToolSchema,
-  ExecutionContext,
-  Transport,
-  ToolDecorator,
-  ResourceDecorator,
-  PromptDecorator,
+import {
+  type FastMCPOptions,
+  type ServerRegistry,
+  type ToolMetadata,
+  type ResourceMetadata,
+  type PromptMetadata,
+  type ToolHandler,
+  type ResourceHandler,
+  type PromptHandler,
+  type ToolSchema,
+  type ExecutionContext,
+  type Transport,
+  type ToolDecorator,
+  type ResourceDecorator,
+  type PromptDecorator,
+  TransportType,
 } from '../types/index.js';
 import {
   getToolsMetadata,
@@ -38,6 +39,7 @@ import {
   resource as coreResourceDecorator,
   prompt as corePromptDecorator,
 } from '../decorators/index.js';
+import { startStreamableMcpServer } from '../transport/streamable.js';
 
 export class FastMCP {
   private server: Server;
@@ -235,6 +237,7 @@ export class FastMCP {
     this.logger.debug(`Registered prompt: ${name}`);
   }
 
+  //! todo:抽取
   private setupHandlers(): void {
     // List tools handler
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -380,9 +383,24 @@ export class FastMCP {
 
     try {
       // 使用配置化的传输层，默认为 stdio
-      const transportOptions = this.options.transport || { type: 'stdio' };
+      const transportOptions = this.options.transport || { type: TransportType.Stdio };
       
-      if (transportOptions.type === 'sse') {
+      if (transportOptions.type === TransportType.Streamable) {
+        console.log(this.server);
+        
+        await startStreamableMcpServer(this.server, transportOptions.endpoint || '/mcp', transportOptions.port || 3322);
+        // Streamable 传输需要 HTTP 服务器支持，这里提供配置信息
+        this.logger.info(`Streamable transport configured for ${transportOptions.host}:${transportOptions.port}`);
+        this.isRunning = true;
+        this.logger.info(`FastMCP server "${this.options.name}" started with ${transportOptions.type} transport`);
+        
+        // 设置优雅关闭
+        process.on('SIGINT', () => this.gracefulShutdown());
+        process.on('SIGTERM', () => this.gracefulShutdown());
+        return;
+      }
+      
+      if (transportOptions.type === TransportType.SSE) {
         // SSE 传输需要 HTTP 服务器支持，这里提供配置信息
         this.logger.info(`SSE transport configured for ${transportOptions.host}:${transportOptions.port}`);
         this.logger.info('Note: SSE transport requires HTTP server setup. Please use TransportFactory.createSSETransport() with your HTTP server.');
@@ -415,7 +433,7 @@ export class FastMCP {
     return this.shutdownPromise;
   }
 
-  private async performShutdown(): Promise<void> {
+  private async performShutdown(): Promise<void> { 
     this.logger.info('Shutting down server...');
     this.isRunning = false;
     

@@ -30,11 +30,18 @@ export interface FastMCPOptions {
   version: string;
   capabilities?: Partial<ServerCapabilities>;
   transport?: TransportOptions;
+
   logging?: LoggingOptions;
+}
+export enum TransportType {
+  Stdio = 'stdio',
+  SSE = 'sse',
+  Streamable = 'streamable',
 }
 
 export interface TransportOptions {
-  type: 'stdio' | 'sse';
+  type: TransportType;
+  endpoint?: string;
   port?: number;
   host?: string;
 }

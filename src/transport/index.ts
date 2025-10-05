@@ -1,6 +1,6 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import type { TransportOptions } from '../types/index.js';
+import { TransportType, type TransportOptions } from '../types/index.js';
 
 /**
  * Factory for creating transport instances
@@ -8,16 +8,28 @@ import type { TransportOptions } from '../types/index.js';
 export class TransportFactory {
   static create(options: TransportOptions) {
     switch (options.type) {
-      case 'stdio':
+      case TransportType.Stdio:
         return new StdioServerTransport();
-      case 'sse':
+      case TransportType.Streamable:
+        if (!options.port) {
+          throw new Error('Port is required for Streamable transport');
+        }
+
+        // Streamable transport requires endpoint and response object
+        // This will be handled by the HTTP server setup
+        return {
+          type: TransportType.Streamable,
+          port: options.port,
+          host: options.host || 'localhost'
+        };
+      case TransportType.SSE:
         if (!options.port) {
           throw new Error('Port is required for SSE transport');
         }
         // SSE transport requires endpoint and response object
         // This will be handled by the HTTP server setup
         return {
-          type: 'sse',
+          type: TransportType.SSE,
           port: options.port,
           host: options.host || 'localhost'
         };
