@@ -15,7 +15,7 @@ class FileSystemServer {
 
   @resource({
     uri: 'file://*',
-    name: 'File Content',
+    name: 'file_content',
     description: 'Read file contents',
   })
   async readFile(uri: string) {
@@ -168,17 +168,17 @@ class FileSystemServer {
 }
 
 // Example usage
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = new FastMCP({
-    name: 'filesystem-server',
-    version: '1.0.0',
-    logging: {
-      level: 'info',
-    },
-  });
+// if (import.meta.url === `file://${process.argv[1]}`) {
+//   const server = new FastMCP({
+//     name: 'filesystem-server',
+//     version: '1.0.0',
+//     logging: {
+//       level: 'info',
+//     },
+//   });
 
-  server.register(new FileSystemServer());
-  server.run().catch(console.error);
-}
+//   server.register(new FileSystemServer());
+//   server.run().catch(console.error);
+// }
 
 export { FileSystemServer };

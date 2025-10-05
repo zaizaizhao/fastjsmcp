@@ -8,68 +8,152 @@ import type {
   ToolMetadata,
   ResourceMetadata,
   PromptMetadata,
+  ToolDecoratorOptions,
+  ResourceDecoratorOptions,
+  PromptDecoratorOptions,
 } from '../types/index.js';
 
 // Metadata keys
-const TOOLS_METADATA_KEY = Symbol('fastmcp:tools');
-const RESOURCES_METADATA_KEY = Symbol('fastmcp:resources');
-const PROMPTS_METADATA_KEY = Symbol('fastmcp:prompts');
+export const TOOLS_METADATA_KEY = Symbol('fastmcp:tools');
+export const RESOURCES_METADATA_KEY = Symbol('fastmcp:resources');
+export const PROMPTS_METADATA_KEY = Symbol('fastmcp:prompts');
+
+// Global registry for function decorators
+let globalFastMCPInstance: any = null;
 
 /**
- * Tool decorator
- * @param name Tool name
- * @param schema Tool schema with input/output validation
+ * Set the global FastMCP instance for function decorators
  */
-export function tool(config: { name: string; description?: string; inputSchema?: z.ZodType }): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    if (!target.constructor._tools) {
-      target.constructor._tools = new Map();
+export function setGlobalFastMCPInstance(instance: any) {
+  globalFastMCPInstance = instance;
+}
+
+/**
+ * Enhanced tool decorator that supports both method and function decoration
+ */
+export function tool(config: ToolDecoratorOptions): any {
+  return function (target: any, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) {
+    // Handle function decoration (when used as mcp.tool()(fn))
+    if (typeof target === 'function' && !propertyKey && !descriptor) {
+      const toolName = config.name || target.name || `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const toolSchema: ToolSchema = {
+        description: config.description || `Tool: ${toolName}`,
+        inputSchema: config.inputSchema || z.any(),
+      };
+      
+      // If global instance is available, register immediately
+      if (globalFastMCPInstance) {
+        globalFastMCPInstance.registerTool(toolName, target as ToolHandler, toolSchema);
+      }
+      
+      return target;
     }
     
-    target.constructor._tools.set(propertyKey, {
-      name: config.name,
-      description: config.description,
-      inputSchema: config.inputSchema,
-      handler: descriptor.value,
-    });
+    // Handle method decoration (when used as @tool)
+    if (descriptor && typeof descriptor.value === 'function') {
+      const existingTools = Reflect.getMetadata(TOOLS_METADATA_KEY, target.constructor) || [];
+      
+      const toolMetadata: ToolMetadata = {
+        name: config.name || String(propertyKey),
+        description: config.description,
+        schema: {
+          description: config.description || '',
+          inputSchema: config.inputSchema || z.any(),
+        },
+        handler: descriptor.value,
+      };
+      
+      existingTools.push(toolMetadata);
+      Reflect.defineMetadata(TOOLS_METADATA_KEY, existingTools, target.constructor);
+      
+      return descriptor;
+    }
+    
+    throw new Error('Invalid tool decorator usage');
   };
 }
 
 /**
- * Resource decorator for marking methods as MCP resources
- * @param config Resource configuration
+ * Enhanced resource decorator that supports both method and function decoration
  */
-export function resource(config: { uri: string; name?: string; description?: string }): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    if (!target.constructor._resources) {
-      target.constructor._resources = new Map();
+export function resource(config: ResourceDecoratorOptions): any {
+  return function (target: any, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) {
+    // Handle function decoration (when used as mcp.resource()(fn))
+    if (typeof target === 'function' && !propertyKey && !descriptor) {
+      const resourceUri = config.uri || target.name || `resource_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // If global instance is available, register immediately
+      if (globalFastMCPInstance) {
+        globalFastMCPInstance.registerResource(resourceUri, target as ResourceHandler, {
+          name: config.name,
+          description: config.description,
+          mimeType: config.mimeType,
+        });
+      }
+      
+      return target;
     }
     
-    target.constructor._resources.set(propertyKey, {
-      uri: config.uri,
-      name: config.name,
-      description: config.description,
-      handler: descriptor.value,
-    });
+    // Handle method decoration (when used as @resource)
+    if (descriptor && typeof descriptor.value === 'function') {
+      const existingResources = Reflect.getMetadata(RESOURCES_METADATA_KEY, target.constructor) || [];
+      
+      const resourceMetadata: ResourceMetadata = {
+        uri: config.uri || String(propertyKey),
+        name: config.name,
+        description: config.description,
+        mimeType: config.mimeType,
+        handler: descriptor.value,
+      };
+      
+      existingResources.push(resourceMetadata);
+      Reflect.defineMetadata(RESOURCES_METADATA_KEY, existingResources, target.constructor);
+      
+      return descriptor;
+    }
+    
+    throw new Error('Invalid resource decorator usage');
   };
 }
 
 /**
- * Prompt decorator for marking methods as MCP prompts
- * @param config Prompt configuration
+ * Enhanced prompt decorator that supports both method and function decoration
  */
-export function prompt(config: { name: string; description?: string; arguments?: Array<{ name: string; description?: string; required?: boolean }> }): MethodDecorator {
-  return function (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) {
-    if (!target.constructor._prompts) {
-      target.constructor._prompts = new Map();
+export function prompt(config: PromptDecoratorOptions): any {
+  return function (target: any, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) {
+    // Handle function decoration (when used as mcp.prompt()(fn))
+    if (typeof target === 'function' && !propertyKey && !descriptor) {
+      const promptName = config.name || target.name || `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // If global instance is available, register immediately
+      if (globalFastMCPInstance) {
+        globalFastMCPInstance.registerPrompt(promptName, target as PromptHandler, {
+          description: config.description,
+          arguments: config.arguments,
+        });
+      }
+      
+      return target;
     }
     
-    target.constructor._prompts.set(propertyKey, {
-      name: config.name,
-      description: config.description,
-      arguments: config.arguments,
-      handler: descriptor.value,
-    });
+    // Handle method decoration (when used as @prompt)
+    if (descriptor && typeof descriptor.value === 'function') {
+      const existingPrompts = Reflect.getMetadata(PROMPTS_METADATA_KEY, target.constructor) || [];
+      
+      const promptMetadata: PromptMetadata = {
+        name: config.name || String(propertyKey),
+        description: config.description,
+        arguments: config.arguments,
+        handler: descriptor.value,
+      };
+      
+      existingPrompts.push(promptMetadata);
+      Reflect.defineMetadata(PROMPTS_METADATA_KEY, existingPrompts, target.constructor);
+      
+      return descriptor;
+    }
+    
+    throw new Error('Invalid prompt decorator usage');
   };
 }
 

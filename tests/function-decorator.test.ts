@@ -104,7 +104,7 @@ describe('FastMCP Function Decorators', () => {
     it('should register a resource using mcp.resource decorator', () => {
       const getInfo = mcp.resource({
         uri: 'test://info',
-        name: 'Test Information',
+        name: 'test_information',
         description: 'Test resource information',
         mimeType: 'text/plain',
       })(async function() {
@@ -246,7 +246,7 @@ describe('FastMCP Function Decorators', () => {
 
       expect(() => {
         mcp.registerResource('help://main', getHelp, {
-          name: 'Help Documentation',
+          name: 'help_documentation',
           description: 'Main help documentation',
           mimeType: 'text/plain',
         });

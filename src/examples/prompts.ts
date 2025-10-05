@@ -164,18 +164,5 @@ class PromptServer {
   }
 }
 
-// Example usage
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = new FastMCP({
-    name: 'prompt-server',
-    version: '1.0.0',
-    logging: {
-      level: 'info',
-    },
-  });
-
-  server.register(new PromptServer());
-  server.run().catch(console.error);
-}
 
 export { PromptServer };

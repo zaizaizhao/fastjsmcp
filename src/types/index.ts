@@ -121,6 +121,7 @@ export interface ExecutionContext {
 // Decorator metadata
 export interface ToolMetadata {
   name: string;
+  description?: string;
   schema: ToolSchema;
   handler: ToolHandler;
 }
@@ -136,7 +137,7 @@ export interface ResourceMetadata {
 export interface PromptMetadata {
   name: string;
   description?: string;
-  arguments?: z.ZodSchema;
+  arguments?: Array<{ name: string; description?: string; required?: boolean }>;
   handler: PromptHandler;
 }
 

@@ -63,7 +63,7 @@ describe('FastMCP', () => {
 
       @resource({
         uri: 'test://resource',
-        name: 'Test Resource',
+        name: 'test_resource',
         description: 'A test resource',
       })
       async testResource() {

@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { z } from 'zod';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -11,6 +12,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { Logger } from '../utils/logger.js';
 import { isPlainObject, validateName } from '../utils/index.js';
+import { TransportFactory } from '../transport/index.js';
 import type {
   FastMCPOptions,
   ServerRegistry,
@@ -31,6 +33,10 @@ import {
   getToolsMetadata,
   getResourcesMetadata,
   getPromptsMetadata,
+  setGlobalFastMCPInstance,
+  tool as coreToolDecorator,
+  resource as coreResourceDecorator,
+  prompt as corePromptDecorator,
 } from '../decorators/index.js';
 
 export class FastMCP {
@@ -38,24 +44,12 @@ export class FastMCP {
   private registry: ServerRegistry;
   private logger: Logger;
   private options: FastMCPOptions;
-  private transport?: Transport;
+  private transport?: any;
+  private isRunning = false;
+  private shutdownPromise?: Promise<void>;
 
   constructor(options: FastMCPOptions) {
     this.options = options;
-    this.registry = {
-      tools: new Map(),
-      resources: new Map(),
-      prompts: new Map(),
-    };
-
-    // Initialize logger
-    this.logger = new Logger({
-      level: options.logging?.level || 'info',
-      format: options.logging?.format || 'simple',
-      prefix: options.name || 'FastMCP',
-    });
-
-    // Initialize MCP server
     this.server = new Server(
       {
         name: options.name,
@@ -71,175 +65,78 @@ export class FastMCP {
       }
     );
 
+    this.registry = {
+      tools: new Map(),
+      resources: new Map(),
+      prompts: new Map(),
+    };
+
+    this.logger = new Logger({
+      level: options.logging?.level || 'info',
+      format: options.logging?.format || 'simple',
+    });
+
+    // Set this instance as the global instance for function decorators
+    setGlobalFastMCPInstance(this);
+
     this.setupHandlers();
   }
 
   /**
-   * Register a class instance with decorated methods
+   * Register a server instance with decorated methods
    */
   register(instance: any): void {
-    const constructor = instance.constructor;
-
     // Register tools
-    const tools = getToolsMetadata(constructor);
-    for (const toolMeta of tools) {
-      this.registerTool(
-        toolMeta.name,
-        toolMeta.handler.bind(instance),
-        toolMeta.schema
-      );
+    const tools = getToolsMetadata(instance.constructor);
+    for (const tool of tools) {
+      if (tool.name && tool.handler) {
+        this.registerTool(tool.name, tool.handler.bind(instance), tool.schema);
+      }
     }
 
     // Register resources
-    const resources = getResourcesMetadata(constructor);
-    for (const resourceMeta of resources) {
-      this.registerResource(
-        resourceMeta.uri,
-        resourceMeta.handler.bind(instance),
-        {
-          name: resourceMeta.name,
-          description: resourceMeta.description,
-          mimeType: resourceMeta.mimeType,
-        }
-      );
+    const resources = getResourcesMetadata(instance.constructor);
+    for (const resource of resources) {
+      if (resource.uri && resource.handler) {
+        this.registerResource(resource.uri, resource.handler.bind(instance), {
+          name: resource.name,
+          description: resource.description,
+          mimeType: resource.mimeType,
+        });
+      }
     }
 
     // Register prompts
-    const prompts = getPromptsMetadata(constructor);
-    for (const promptMeta of prompts) {
-      this.registerPrompt(
-        promptMeta.name,
-        promptMeta.handler.bind(instance),
-        {
-          description: promptMeta.description,
-          arguments: promptMeta.arguments,
-        }
-      );
+    const prompts = getPromptsMetadata(instance.constructor);
+    for (const prompt of prompts) {
+      if (prompt.name && prompt.handler) {
+        this.registerPrompt(prompt.name, prompt.handler.bind(instance), {
+          description: prompt.description,
+          arguments: prompt.arguments,
+        });
+      }
     }
   }
 
  /**
- * Instance decorator for tools - allows @mcp.tool usage on class methods
- * and higher-order function usage on standalone functions
+ * Instance decorator for tools - enhanced version that uses core decorator
  */
   tool: ToolDecorator = (options?) => {
-    return (target: Function, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
-      // Handle function decoration
-      if (typeof target === 'function' && !propertyKey) {
-        const toolName = options?.name || target.name || `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const toolSchema = {
-          description: options?.description || `Tool: ${toolName}`,
-          inputSchema: options?.inputSchema || { type: 'object', properties: {}, additionalProperties: true },
-        };
-        
-        this.registerTool(toolName, target as ToolHandler, toolSchema);
-        return target;
-      }
-      
-      // Handle method decoration (existing behavior)
-      if (descriptor && typeof descriptor.value === 'function') {
-        const toolName = options?.name || String(propertyKey);
-        const toolSchema = {
-          description: options?.description || `Tool: ${toolName}`,
-          inputSchema: options?.inputSchema || { type: 'object', properties: {}, additionalProperties: true },
-        };
-        
-        // Store metadata for later registration via register() method
-         const constructor = target.constructor as any;
-         if (!constructor[Symbol.for('fastmcp:tools')]) {
-           constructor[Symbol.for('fastmcp:tools')] = [];
-         }
-         constructor[Symbol.for('fastmcp:tools')].push({
-          name: toolName,
-          handler: descriptor.value,
-          schema: toolSchema,
-        });
-        
-        return descriptor;
-      }
-      
-      throw new Error('Invalid decorator usage');
-    };
+    return coreToolDecorator(options || {});
   };
 
   /**
-   * Instance decorator for resources - allows @mcp.resource usage on functions
+   * Instance decorator for resources - enhanced version that uses core decorator
    */
   resource: ResourceDecorator = (options?) => {
-    return (target: Function, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
-      // Handle function decoration
-      if (typeof target === 'function' && !propertyKey) {
-        const resourceUri = options?.uri || target.name || `resource_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        this.registerResource(resourceUri, target as ResourceHandler, {
-          name: options?.name,
-          description: options?.description,
-          mimeType: options?.mimeType,
-        });
-        return target;
-      }
-      
-      // Handle method decoration (existing behavior)
-      if (descriptor && typeof descriptor.value === 'function') {
-        const resourceUri = options?.uri || String(propertyKey);
-        
-        // Store metadata for later registration via register() method
-         const constructor = target.constructor as any;
-         if (!constructor[Symbol.for('fastmcp:resources')]) {
-           constructor[Symbol.for('fastmcp:resources')] = [];
-         }
-         constructor[Symbol.for('fastmcp:resources')].push({
-          uri: resourceUri,
-          name: options?.name,
-          description: options?.description,
-          mimeType: options?.mimeType,
-          handler: descriptor.value,
-        });
-        
-        return descriptor;
-      }
-      
-      throw new Error('Invalid decorator usage');
-    };
+    return coreResourceDecorator(options || {});
   };
 
   /**
-   * Instance decorator for prompts - allows @mcp.prompt usage on functions
+   * Instance decorator for prompts - enhanced version that uses core decorator
    */
   prompt: PromptDecorator = (options?) => {
-    return (target: Function, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
-      // Handle function decoration
-      if (typeof target === 'function' && !propertyKey) {
-        const promptName = options?.name || target.name || `prompt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        this.registerPrompt(promptName, target as PromptHandler, {
-          description: options?.description,
-          arguments: options?.arguments,
-        });
-        return target;
-      }
-      
-      // Handle method decoration (existing behavior)
-      if (descriptor && typeof descriptor.value === 'function') {
-        const promptName = options?.name || String(propertyKey);
-        
-        // Store metadata for later registration via register() method
-         const constructor = target.constructor as any;
-         if (!constructor[Symbol.for('fastmcp:prompts')]) {
-           constructor[Symbol.for('fastmcp:prompts')] = [];
-         }
-         constructor[Symbol.for('fastmcp:prompts')].push({
-          name: promptName,
-          description: options?.description,
-          arguments: options?.arguments,
-          handler: descriptor.value,
-        });
-        
-        return descriptor;
-      }
-      
-      throw new Error('Invalid decorator usage');
-    };
+    return corePromptDecorator(options || {});
   };
 
   /**
@@ -252,20 +149,22 @@ export class FastMCP {
     
     // Validate tool name according to FastMCP naming rules
     validateName(name);
-    
-    if (!handler || typeof handler !== 'function') {
+
+    if (typeof handler !== 'function') {
       throw new Error('Tool handler must be a function');
     }
-    if (!schema) {
-      throw new Error('Tool schema is required');
+
+    if (!schema || typeof schema !== 'object') {
+      throw new Error('Tool schema must be an object');
     }
-    
+
     this.registry.tools.set(name, {
       name,
-      schema,
       handler,
+      schema,
     });
-    this.logger.info(`Registered tool: ${name}`);
+
+    this.logger.debug(`Registered tool: ${name}`);
   }
 
   /**
@@ -283,20 +182,25 @@ export class FastMCP {
     if (!uri || typeof uri !== 'string') {
       throw new Error('Resource URI must be a non-empty string');
     }
-    
+
+    if (typeof handler !== 'function') {
+      throw new Error('Resource handler must be a function');
+    }
+
     // Validate resource name if provided
     if (options?.name) {
       validateName(options.name);
     }
-    
+
     this.registry.resources.set(uri, {
       uri,
+      handler,
       name: options?.name,
       description: options?.description,
       mimeType: options?.mimeType,
-      handler,
     });
-    this.logger.info(`Registered resource: ${uri}`);
+
+    this.logger.debug(`Registered resource: ${uri}`);
   }
 
   /**
@@ -313,168 +217,229 @@ export class FastMCP {
     if (!name || typeof name !== 'string') {
       throw new Error('Prompt name must be a non-empty string');
     }
-    
+
     // Validate prompt name according to FastMCP naming rules
     validateName(name);
-    
-    if (!handler || typeof handler !== 'function') {
+
+    if (typeof handler !== 'function') {
       throw new Error('Prompt handler must be a function');
     }
-    
+
     this.registry.prompts.set(name, {
       name,
+      handler,
       description: options?.description,
       arguments: options?.arguments,
-      handler,
     });
-    this.logger.info(`Registered prompt: ${name}`);
+
+    this.logger.debug(`Registered prompt: ${name}`);
   }
 
-  /**
-   * Setup MCP protocol handlers
-   */
   private setupHandlers(): void {
-    // Tools handlers
+    // List tools handler
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       const tools = Array.from(this.registry.tools.values()).map(tool => ({
         name: tool.name,
         description: tool.schema.description,
         inputSchema: this.zodToJsonSchema(tool.schema.inputSchema),
       }));
+
       return { tools };
     });
 
+    // Call tool handler
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
-      const toolMeta = this.registry.tools.get(name);
-      
-      if (!toolMeta) {
+      const tool = this.registry.tools.get(name);
+
+      if (!tool) {
         throw new Error(`Tool not found: ${name}`);
       }
 
       try {
-        // Validate input
-        const validatedArgs = toolMeta.schema.inputSchema.parse(args);
-        
+        // Validate arguments using Zod schema
+        const validatedArgs = tool.schema.inputSchema.parse(args || {});
+
         // Create execution context
         const context: ExecutionContext = {
-          requestId: crypto.randomUUID(),
+          requestId: Math.random().toString(36).substr(2, 9),
           timestamp: new Date(),
           cancel: new AbortController().signal,
         };
 
         // Execute tool
-        const result = await toolMeta.handler(validatedArgs, context);
-        
+        const result = await tool.handler(validatedArgs, context);
+
+        // Ensure the result matches CallToolResult format
         return {
           content: result.content,
           isError: result.isError || false,
         };
       } catch (error) {
-        this.logger.error(`Tool execution error: ${name}`, error);
-        return {
-          content: [{
-            type: 'text' as const,
-            text: `Error executing tool: ${error instanceof Error ? error.message : String(error)}`,
-          }],
-          isError: true,
-        };
-      }
-    });
-
-    // Resources handlers
-    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
-      const resources = Array.from(this.registry.resources.values()).map(resource => ({
-        uri: resource.uri,
-        name: resource.name || resource.uri,
-        description: resource.description,
-        mimeType: resource.mimeType,
-      }));
-      return { resources };
-    });
-
-    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-      const { uri } = request.params;
-      const resourceMeta = this.registry.resources.get(uri);
-      
-      if (!resourceMeta) {
-        throw new Error(`Resource not found: ${uri}`);
-      }
-
-      try {
-        const result = await resourceMeta.handler(uri);
-        return {
-          contents: result.contents,
-        };
-      } catch (error) {
-        this.logger.error(`Resource read error: ${uri}`, error);
+        this.logger.error(`Tool execution error for ${name}:`, error);
         throw error;
       }
     });
 
-    // Prompts handlers
+    // List resources handler
+    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+      const resources = Array.from(this.registry.resources.values()).map(resource => ({
+        uri: resource.uri,
+        name: resource.name,
+        description: resource.description,
+        mimeType: resource.mimeType,
+      }));
+
+      return { resources };
+    });
+
+    // Read resource handler
+    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+      const { uri } = request.params;
+      const resource = this.registry.resources.get(uri);
+
+      if (!resource) {
+        throw new Error(`Resource not found: ${uri}`);
+      }
+
+      try {
+        const result = await resource.handler(uri);
+        
+        // Ensure the result matches ReadResourceResult format
+        return {
+          contents: result.contents,
+        };
+      } catch (error) {
+        this.logger.error(`Resource read error for ${uri}:`, error);
+        throw error;
+      }
+    });
+
+    // List prompts handler
     this.server.setRequestHandler(ListPromptsRequestSchema, async () => {
       const prompts = Array.from(this.registry.prompts.values()).map(prompt => ({
         name: prompt.name,
         description: prompt.description,
-        arguments: prompt.arguments ? this.zodToJsonSchema(prompt.arguments) : undefined,
+        arguments: prompt.arguments,
       }));
+
       return { prompts };
     });
 
+    // Get prompt handler
     this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
       const promptMeta = this.registry.prompts.get(name);
-      
+
       if (!promptMeta) {
         throw new Error(`Prompt not found: ${name}`);
       }
 
       try {
-        // Validate arguments if schema is provided
-        const validatedArgs = promptMeta.arguments 
-          ? promptMeta.arguments.parse(args || {})
-          : args;
+        // For prompts, we don't parse arguments since they're now arrays
+        const validatedArgs = args;
+
+        const result = await promptMeta.handler(validatedArgs);
         
-        const result = await promptMeta.handler(validatedArgs as any);
+        // Ensure the result matches GetPromptResult format
         return {
           description: result.description,
           messages: result.messages,
         };
       } catch (error) {
-        this.logger.error(`Prompt execution error: ${name}`, error);
+        this.logger.error(`Prompt execution error for ${name}:`, error);
         throw error;
       }
     });
   }
 
-  /**
-   * Convert Zod schema to JSON Schema (simplified)
-   */
   private zodToJsonSchema(schema: any): any {
-    // This is a simplified conversion
-    // In a real implementation, you might want to use a library like zod-to-json-schema
-    return {
-      type: 'object',
-      properties: {},
-      additionalProperties: true,
-    };
+    // Simple Zod to JSON Schema conversion
+    // This is a basic implementation - you might want to use a proper library
+    if (schema._def) {
+      const def = schema._def;
+      if (def.typeName === 'ZodObject') {
+        return {
+          type: 'object',
+          properties: Object.fromEntries(
+            Object.entries(def.shape()).map(([key, value]: [string, any]) => [
+              key,
+              this.zodToJsonSchema(value),
+            ])
+          ),
+        };
+      }
+    }
+    return { type: 'object', additionalProperties: true };
   }
 
-  /**
-   * Run the server
-   */
   async run(): Promise<void> {
-    const transport = new StdioServerTransport() as any;
-    await this.server.connect(transport);
-    this.logger.info(`FastMCP server '${this.options.name}' started`);
+    if (this.isRunning) {
+      throw new Error('Server is already running');
+    }
+
+    try {
+      // 使用配置化的传输层，默认为 stdio
+      const transportOptions = this.options.transport || { type: 'stdio' };
+      
+      if (transportOptions.type === 'sse') {
+        // SSE 传输需要 HTTP 服务器支持，这里提供配置信息
+        this.logger.info(`SSE transport configured for ${transportOptions.host}:${transportOptions.port}`);
+        this.logger.info('Note: SSE transport requires HTTP server setup. Please use TransportFactory.createSSETransport() with your HTTP server.');
+        throw new Error('SSE transport requires HTTP server setup. Please refer to documentation for SSE server implementation.');
+      } else {
+        // 使用 stdio 传输
+        this.transport = TransportFactory.create(transportOptions) as StdioServerTransport;
+      }
+      
+      await this.server.connect(this.transport);
+      this.isRunning = true;
+      this.logger.info(`FastMCP server "${this.options.name}" started with ${transportOptions.type} transport`);
+
+      // 设置优雅关闭
+      process.on('SIGINT', () => this.gracefulShutdown());
+      process.on('SIGTERM', () => this.gracefulShutdown());
+    } catch (error) {
+      this.logger.error('Failed to start server:', error);
+      this.isRunning = false;
+      throw error;
+    }
+  }
+
+  private async gracefulShutdown(): Promise<void> {
+    if (this.shutdownPromise) {
+      return this.shutdownPromise;
+    }
+
+    this.shutdownPromise = this.performShutdown();
+    return this.shutdownPromise;
+  }
+
+  private async performShutdown(): Promise<void> {
+    this.logger.info('Shutting down server...');
+    this.isRunning = false;
+    
+    // 等待当前请求完成
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    try {
+      // 关闭服务器
+      await this.server.close();
+      this.logger.info('Server shutdown complete');
+    } catch (error) {
+      this.logger.error('Error during server shutdown:', error);
+      throw error;
+    }
   }
 
   /**
-   * Stop the server
+   * 健康检查 - 检查服务器运行状态和连接状态
    */
+  isHealthy(): boolean {
+    return this.isRunning && this.server !== null;
+  }
+
   async stop(): Promise<void> {
-    await this.server.close();
-    this.logger.info(`FastMCP server '${this.options.name}' stopped`);
+    return this.gracefulShutdown();
   }
 }

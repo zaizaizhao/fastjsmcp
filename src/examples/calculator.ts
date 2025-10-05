@@ -124,17 +124,17 @@ class CalculatorServer {
 }
 
 // Example usage
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = new FastMCP({
-    name: 'calculator-server',
-    version: '1.0.0',
-    logging: {
-      level: 'info',
-    },
-  });
+// if (import.meta.url === `file://${process.argv[1]}`) {
+//   const server = new FastMCP({
+//     name: 'calculator-server',
+//     version: '1.0.0',
+//     logging: {
+//       level: 'info',
+//     },
+//   });
 
-  server.register(new CalculatorServer());
-  server.run().catch(console.error);
-}
+//   server.register(new CalculatorServer());
+//   server.run().catch(console.error);
+// }
 
 export { CalculatorServer };

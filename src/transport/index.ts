@@ -15,11 +15,23 @@ export class TransportFactory {
           throw new Error('Port is required for SSE transport');
         }
         // SSE transport requires endpoint and response object
-        // This is a placeholder implementation
-        throw new Error('SSE transport requires additional setup with HTTP server');
+        // This will be handled by the HTTP server setup
+        return {
+          type: 'sse',
+          port: options.port,
+          host: options.host || 'localhost'
+        };
       default:
         throw new Error(`Unsupported transport type: ${(options as any).type}`);
     }
+  }
+
+  /**
+   * Create SSE transport with HTTP server setup
+   * This method should be called when setting up an HTTP server for SSE transport
+   */
+  static createSSETransport(endpoint: string, response: any): SSEServerTransport {
+    return new SSEServerTransport(endpoint, response);
   }
 }
 

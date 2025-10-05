@@ -10,12 +10,13 @@ module.exports = {
     '!src/**/*.d.ts',
     '!src/examples/**',
   ],
+  testPathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/node_modules/', '<rootDir>/src/examples/'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   transform: {
     '^.+\.ts$': ['ts-jest', {
       tsconfig: {
-        module: 'commonjs',
+        module: 'esnext',
         target: 'es2022',
         esModuleInterop: true,
         allowSyntheticDefaultImports: true
@@ -25,5 +26,5 @@ module.exports = {
   moduleNameMapper: {
     '^(\\.\\.?\\/.*)\\.js$': '$1',
   },
-  testPathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/node_modules/'],
+
 };

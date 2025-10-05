@@ -325,17 +325,17 @@ class ComprehensiveServer {
 }
 
 // Example usage
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = new FastMCP({
-    name: 'comprehensive-server',
-    version: '1.0.0',
-    logging: {
-      level: 'info',
-    },
-  });
+// if (import.meta.url === `file://${process.argv[1]}`) {
+//   const server = new FastMCP({
+//     name: 'comprehensive-server',
+//     version: '1.0.0',
+//     logging: {
+//       level: 'info',
+//     },
+//   });
 
-  server.register(new ComprehensiveServer());
-  server.run().catch(console.error);
-}
+//   server.register(new ComprehensiveServer());
+//   server.run().catch(console.error);
+// }
 
 export { ComprehensiveServer };
