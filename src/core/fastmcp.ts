@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { z } from 'zod';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -52,7 +51,7 @@ export class FastMCP {
     this.server = new Server(
       {
         name: options.name,
-        version: options.version,
+        version: options.serverVersion || options.version || '1.0.0',
       },
       {
         capabilities: {

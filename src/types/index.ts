@@ -27,7 +27,8 @@ export type {
 // FastMCP specific types
 export interface FastMCPOptions {
   name: string;
-  version: string;
+  version?: string;
+  serverVersion?: string;
   capabilities?: Partial<ServerCapabilities>;
   transport?: TransportOptions;
 
@@ -203,3 +204,15 @@ export type PromptDecorator = (options?: PromptDecoratorOptions) => (
   propertyKey?: string | symbol,
   descriptor?: PropertyDescriptor
 ) => any;
+
+// FastMCP class decorator options
+export interface FastMcpDecoratorOptions {
+  name: string;
+  version?: string;
+  serverVersion?: string;
+  transport?: TransportOptions;
+  logging?: LoggingOptions;
+  capabilities?: Partial<ServerCapabilities>;
+}
+
+export type FastMcpDecorator = (options: FastMcpDecoratorOptions) => <T extends new (...args: any[]) => any>(constructor: T) => T;

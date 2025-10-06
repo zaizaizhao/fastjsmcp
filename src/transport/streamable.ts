@@ -3,11 +3,11 @@ import {
   type EventStore,
   StreamableHTTPServerTransport,
 } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { createBaseHttpServer, RequestHandlers } from "./httpServer";
+import { createBaseHttpServer, RequestHandlers } from "./httpServer.js";
 import { IncomingMessage, Server, ServerResponse } from "node:http";
-import { getBody } from "./getBody";
+import { getBody } from "./getBody.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
-import { InMemoryEventStore } from "./InMemoryEventStore";
+import { InMemoryEventStore } from "./InMemoryEventStore.js";
 import { randomUUID } from "node:crypto";
 
 export function startStreamableMcpServer(

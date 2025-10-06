@@ -11,7 +11,9 @@ import type {
   ToolDecoratorOptions,
   ResourceDecoratorOptions,
   PromptDecoratorOptions,
+  FastMcpDecoratorOptions,
 } from '../types/index.js';
+
 
 // Metadata keys
 export const TOOLS_METADATA_KEY = Symbol('fastmcp:tools');
@@ -178,6 +180,9 @@ export function getPromptsMetadata(target: any): PromptMetadata[] {
   return Reflect.getMetadata(PROMPTS_METADATA_KEY, target) || [];
 }
 
+// Import and re-export the fastMcp decorator from the dedicated file
+export { fastMcp, checkIfDirectRun } from './fastmcpDecorator.js';
+
 // Helper function to create Zod schemas
 export const Schema = {
   string: () => z.string(),
@@ -187,6 +192,6 @@ export const Schema = {
   object: <T extends z.ZodRawShape>(shape: T) => z.object(shape),
   optional: <T>(schema: z.ZodType<T>) => z.optional(schema),
   nullable: <T>(schema: z.ZodType<T>) => z.nullable(schema),
-  union: <T extends readonly [z.ZodTypeAny, ...z.ZodTypeAny[]]>(schemas: T) => z.union(schemas),
+  union: <T extends readonly [z.ZodTypeAny, z.ZodTypeAny, ...z.ZodTypeAny[]]>(schemas: T) => z.union(schemas),
   enum: <T extends readonly [string, ...string[]]>(values: T) => z.enum(values),
 };

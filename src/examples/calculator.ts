@@ -1,10 +1,20 @@
-import { FastMCP, tool, Schema, TransportType } from '../index.js';
+import { fastMcp, tool, Schema, TransportType } from '../index.js';
 import type { ExecutionContext } from '../types/index.js';
 
 /**
  * Calculator server example demonstrating tool usage
  */
-class CalculatorServer {
+@fastMcp({
+  name: 'calculator-server',
+  version: '1.0.0',
+  transport: {
+    type: TransportType.Streamable,
+    port: 3323,
+    host: 'localhost',
+    endpoint: '/mcp',
+  },
+})
+export class CalculatorServer {
   @tool({
     name: 'add',
     description: 'Add two numbers',
@@ -125,21 +135,10 @@ class CalculatorServer {
   }
 }
 
-// Example usage
-if (import.meta.url.endsWith(process.argv[1]?.replace(/\\/g, '/'))) {
-  const server = new FastMCP({
-    name: 'calculator-server',
-    version: '1.0.0',
-    transport: {
-      type: TransportType.Streamable,
-      port: 3322,
-      host: 'localhost',
-      endpoint: '/mcp',
-    },
-  });
+// If the module is being run directly (not imported), instantiate the server
+// Note: This is no longer needed when using @fastMcp decorator with CLI
+// The CLI will automatically detect and instantiate decorated classes
+// if (require.main === module) {
+//   new CalculatorServer();
+// }
 
-  server.register(new CalculatorServer());
-  server.run().catch(console.error);
-}
-
-export { CalculatorServer };

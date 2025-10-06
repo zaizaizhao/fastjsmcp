@@ -7,7 +7,7 @@ export const VERSION = '1.0.0';
 export { FastMCP } from './core/fastmcp.js';
 
 // Decorator exports
-export { tool, resource, prompt, Schema } from './decorators/index.js';
+export { tool, resource, prompt, fastMcp, Schema } from './decorators/index.js';
 
 // Transport exports
 export { TransportFactory, StdioServerTransport, SSEServerTransport } from './transport/index.js';
