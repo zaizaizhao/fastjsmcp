@@ -1,0 +1,12 @@
+{
+  "port": 8080,
+  "proxyPort": 9000,
+  "transport": "stdio",
+  "env": {
+    "DEBUG": "true",
+    "NODE_ENV": "development"
+  },
+  "args": ["--verbose"],
+  "autoOpen": true,
+  "timeout": 45000
+}

@@ -4,6 +4,9 @@ require('reflect-metadata');
 // Global test configuration
 jest.setTimeout(10000);
 
+// Disable automatic FastMCP server bootstrapping during tests
+process.env.FASTMCP_AUTOSTART = 'false';
+
 // Mock console methods to reduce noise in tests
 const originalConsole = { ...console };
 

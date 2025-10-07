@@ -8,6 +8,16 @@ export function fastMcp(options: FastMcpDecoratorOptions): <T extends new (...ar
   return function <T extends new (...args: any[]) => any>(constructor: T): T {
     // Store decorator options as metadata for CLI detection
     Reflect.defineMetadata('fastmcp:options', options, constructor);
+
+    const isAutoStartEnabled = (): boolean => {
+      const flag = process.env.FASTMCP_AUTOSTART;
+      if (flag === undefined) {
+        return true;
+      }
+
+      const normalized = flag.trim().toLowerCase();
+      return !['false', '0', 'no', 'off'].includes(normalized);
+    };
     
     // Create a new class that extends the original
     class FastMcpServer extends constructor {
@@ -16,7 +26,12 @@ export function fastMcp(options: FastMcpDecoratorOptions): <T extends new (...ar
         
         // Always set up the server when the class is instantiated
         // Use setTimeout to ensure this runs after constructor completion
+        const autoStart = isAutoStartEnabled();
         setTimeout(async () => {
+          if (!autoStart) {
+            return;
+          }
+
           try {
             // Dynamically import FastMCP to avoid circular dependencies
             const { FastMCP } = await import('../core/fastmcp.js');
@@ -44,6 +59,34 @@ export function fastMcp(options: FastMcpDecoratorOptions): <T extends new (...ar
 
     // Preserve the original class name and prototype
     Object.defineProperty(FastMcpServer, 'name', { value: constructor.name });
+
+    try {
+      if (!isAutoStartEnabled()) {
+        return FastMcpServer as T;
+      }
+
+      const argv = process.argv || [];
+      const isCliMode = argv.some((arg) =>
+        arg.includes('cli.js') ||
+        arg.includes('fastmcp') ||
+        arg.includes('dist/src/cli.js')
+      );
+      const mainModule = process.argv?.[1];
+      const isDirectExecution = Boolean(
+        mainModule &&
+        (mainModule.endsWith('.ts') || mainModule.endsWith('.js')) &&
+        !mainModule.includes('node_modules')
+      );
+
+      if (!isCliMode && isDirectExecution) {
+        setTimeout(() => {
+          // Automatically instantiate when the module is executed directly (e.g., via tsx)
+          new FastMcpServer();
+        }, 0);
+      }
+    } catch (error) {
+      console.warn('FastMCP auto-start detection failed:', error);
+    }
     
     return FastMcpServer as T;
   };

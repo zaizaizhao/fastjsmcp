@@ -1,5 +1,5 @@
-import { fastMcp, tool } from './src/decorators/index.js';
-import { TransportType } from './src/types/index.js';
+import { fastMcp, tool } from '../../src/decorators/index.js';
+import { TransportType } from '../../src/types/index.js';
 
 @fastMcp({
   name: 'test-manual-server',

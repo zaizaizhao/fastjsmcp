@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import type { Server as HttpServer } from 'node:http';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -24,6 +25,7 @@ import {
   type ResourceDecorator,
   type PromptDecorator,
   TransportType,
+  type TransportOptions,
 } from '../types/index.js';
 import {
   getToolsMetadata,
@@ -43,6 +45,7 @@ export class FastMCP {
   private logger: Logger;
   private options: FastMCPOptions;
   private transport?: any;
+  private httpServer?: HttpServer;
   private isRunning = false;
   private shutdownPromise?: Promise<void>;
 
@@ -363,13 +366,17 @@ export class FastMCP {
     }
 
     try {
-      // 使用配置化的传输层，默认为 stdio
-      const transportOptions = this.options.transport || { type: TransportType.Stdio };
+      // 使用配置化的传输层，默认为 stdio，并支持环境变量覆盖
+      const transportOptions = this.resolveTransportOptions();
       
       if (transportOptions.type === TransportType.Streamable) {
         console.log(this.server);
         
-        await startStreamableMcpServer(this.server, transportOptions.endpoint || '/mcp', transportOptions.port || 3322);
+        this.httpServer = await startStreamableMcpServer(
+          this.server,
+          transportOptions.endpoint || '/mcp',
+          transportOptions.port || 3322
+        );
         // Streamable 传输需要 HTTP 服务器支持，这里提供配置信息
         this.logger.info(`Streamable transport configured for ${transportOptions.host}:${transportOptions.port}`);
         this.isRunning = true;
@@ -407,6 +414,62 @@ export class FastMCP {
     }
   }
 
+  private resolveTransportOptions(): TransportOptions {
+    const base: TransportOptions = this.options.transport
+      ? { ...this.options.transport }
+      : { type: TransportType.Stdio };
+
+    const envTransport = (process.env.FASTMCP_TRANSPORT
+      || process.env.MCP_TRANSPORT
+      || process.env.MCP_INSPECTOR_TRANSPORT
+      || '').toLowerCase();
+
+    const envHost = process.env.FASTMCP_HOST || process.env.MCP_HOST;
+    const envPort = process.env.FASTMCP_PORT || process.env.MCP_PORT;
+    const envEndpoint = process.env.FASTMCP_ENDPOINT || process.env.MCP_ENDPOINT;
+
+    const resolved: TransportOptions = { ...base };
+
+    if (envTransport) {
+      switch (envTransport) {
+        case 'stdio':
+          resolved.type = TransportType.Stdio;
+          delete resolved.endpoint;
+          delete resolved.host;
+          delete resolved.port;
+          break;
+        case 'streamable':
+        case 'streamable-http':
+          resolved.type = TransportType.Streamable;
+          break;
+        case 'sse':
+          resolved.type = TransportType.SSE;
+          break;
+        default:
+          this.logger.warn(`Unknown transport override "${envTransport}", falling back to configured transport.`);
+      }
+    }
+
+    if (envHost) {
+      resolved.host = envHost;
+    }
+
+    if (envEndpoint) {
+      resolved.endpoint = envEndpoint;
+    }
+
+    if (envPort) {
+      const parsed = Number.parseInt(envPort, 10);
+      if (!Number.isNaN(parsed)) {
+        resolved.port = parsed;
+      } else {
+        this.logger.warn(`Invalid FASTMCP_PORT value "${envPort}", ignoring.`);
+      }
+    }
+
+    return resolved;
+  }
+
   private async gracefulShutdown(): Promise<void> {
     if (this.shutdownPromise) {
       return this.shutdownPromise;
@@ -426,6 +489,18 @@ export class FastMCP {
     try {
       // 关闭服务器
       await this.server.close();
+      if (this.httpServer) {
+        await new Promise<void>((resolve, reject) => {
+          this.httpServer?.close((error) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            resolve();
+          });
+        });
+        this.httpServer = undefined;
+      }
       this.logger.info('Server shutdown complete');
     } catch (error) {
       this.logger.error('Error during server shutdown:', error);

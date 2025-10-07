@@ -1,5 +1,5 @@
 // Test file for @fastMcp decorator
-import { fastMcp, tool, Schema, TransportType } from './src/index.js';
+import { fastMcp, tool, Schema, TransportType } from '../../src/index.js';
 
 @fastMcp({
   name: 'test-server',
