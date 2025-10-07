@@ -57,6 +57,48 @@ pnpm add fastjsmcp
 yarn add fastjsmcp
 ```
 
+### Using CLI Tools
+
+After installation, you can use the `fastjsmcp` command-line tool in the following ways:
+
+#### Recommended: Using npx
+```bash
+npx fastjsmcp --help
+npx fastjsmcp run your-server.ts
+```
+
+#### Using npm scripts
+Configure in `package.json`:
+```json
+{
+  "scripts": {
+    "dev": "fastjsmcp run src/server.ts",
+    "start": "fastjsmcp run dist/server.js"
+  }
+}
+```
+
+Then run:
+```bash
+npm run dev
+# or
+pnpm dev
+# or
+yarn dev
+```
+
+#### Using relative paths
+```bash
+# For local installation
+./node_modules/.bin/fastjsmcp --help
+
+# Or using pnpm
+pnpm exec fastjsmcp --help
+
+# Or using yarn
+yarn fastjsmcp --help
+```
+
 ## 🚀 Quick Start
 
 ### Using Class Decorators

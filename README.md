@@ -56,6 +56,48 @@ pnpm add fastjsmcp
 yarn add fastjsmcp
 ```
 
+### 使用 CLI 工具
+
+安装后，你可以通过以下方式使用 `fastjsmcp` 命令行工具：
+
+#### 推荐方式：使用 npx
+```bash
+npx fastjsmcp --help
+npx fastjsmcp run your-server.ts
+```
+
+#### 使用 npm scripts
+在 `package.json` 中配置：
+```json
+{
+  "scripts": {
+    "dev": "fastjsmcp run src/server.ts",
+    "start": "fastjsmcp run dist/server.js"
+  }
+}
+```
+
+然后运行：
+```bash
+npm run dev
+# 或
+pnpm dev
+# 或
+yarn dev
+```
+
+#### 使用相对路径
+```bash
+# 如果是局部安装
+./node_modules/.bin/fastjsmcp --help
+
+# 或者使用 pnpm
+pnpm exec fastjsmcp --help
+
+# 或者使用 yarn
+yarn fastjsmcp --help
+```
+
 ## 🚀 快速开始
 
 ### 使用类装饰器
