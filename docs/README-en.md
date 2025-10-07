@@ -1,8 +1,8 @@
-# FastMCP JavaScript
+# FastJsMcp
 
 A fast and simple Model Context Protocol (MCP) server implementation for JavaScript/TypeScript.
 
-[中文文档](../README.md) | [Official Website](https://gofastmcp.com)
+[中文文档](../README.md)
 
 ## ✨ Features
 
@@ -434,7 +434,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - [Model Context Protocol Specification](https://spec.modelcontextprotocol.io/)
 - [MCP SDK Documentation](https://github.com/modelcontextprotocol/typescript-sdk)
-- [FastMCP Official Website](https://gofastmcp.com)
 - [GitHub Repository](https://github.com/zaizaizhao/fastjsmcp)
 
 ## 🆘 Support
@@ -448,4 +447,4 @@ If you encounter issues or have questions:
 
 ---
 
-**FastMCP JavaScript** - Making MCP server development fast and simple! 🚀
+**FastJsMcp** - Making MCP server development fast and simple! 🚀
