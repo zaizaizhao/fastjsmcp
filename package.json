@@ -1,12 +1,12 @@
 {
   "name": "fastjsmcp",
-  "version": "1.0.0",
-  "description": "FastMCP JavaScript implementation - A fast and easy way to build MCP servers",
+  "version": "1.0.2",
+  "description": "Create a fully functional Model Context Protocol (MCP) server with just two decorators, supporting JavaScript/TypeScript",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "bin": {
-    "fastjsmcp": "dist/cli.js"
+    "fastjsmcp": "dist/src/cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -19,7 +19,7 @@
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "check": "tsc --noEmit",
-    "clean": "rm -rf dist",
+    "clean": "rmdir /s /q dist 2>nul || echo \"dist directory not found\"",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
@@ -54,17 +54,18 @@
     "typescript",
     "nodejs"
   ],
-  "author": "FastMCP Team",
-  "license": "MIT",
+  "author": "zaizaizhao",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/fastmcp/fastmcp-js.git"
+    "url": "https://github.com/zaizaizhao/fastjsmcp.git"
   },
   "bugs": {
-    "url": "https://github.com/fastmcp/fastmcp-js/issues"
+    "url": "https://github.com/zaizaizhao/fastjsmcp/issues"
   },
-  "homepage": "https://gofastmcp.com",
+  "homepage": "",
   "engines": {
     "node": ">=18.0.0"
   }
 }
+  

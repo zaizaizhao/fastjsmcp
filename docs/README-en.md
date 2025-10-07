@@ -51,7 +51,7 @@ export class CalculatorServer {
 
 ```bash
 npm install fastjsmcp
-# or
+# or 
 pnpm add fastjsmcp
 # or
 yarn add fastjsmcp
