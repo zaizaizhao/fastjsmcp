@@ -1,6 +1,37 @@
 # FastJsMcp
 
-一个快速简单的 Model Context Protocol (MCP) 服务器实现，支持 JavaScript/TypeScript。
+前端人自己的 MCP 服务器实现，只需两个装饰器，即可创建一个功能齐全的 Model Context Protocol (MCP) 服务器，支持 JavaScript/TypeScript。
+```typescript
+@fastMcp({
+  name: 'calculator-server',
+  version: '1.0.0',
+  transport: {
+    type: TransportType.Streamable,
+    port: 3323,
+    host: 'localhost',
+    endpoint: '/mcp',
+  },
+})
+export class CalculatorServer {
+  @tool({
+    name: 'add',
+    description: 'Add two numbers',
+    inputSchema: Schema.object({
+      a: Schema.number().describe("第一个数字a"),
+      b: Schema.number().describe("第二个数字b"),
+    }),
+  })
+  async add(args: { a: number; b: number }, context: ExecutionContext) {
+    const result = args.a + args.b;
+    return {
+      content: [{
+        type: 'text' as const,
+        text: `${args.a} + ${args.b} = ${result}`,
+      }],
+    };
+  }
+}
+```
 
 [English Documentation](./docs/README-en.md)
 
