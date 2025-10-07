@@ -111,16 +111,16 @@ FastMCP comes with a built-in CLI for running example servers:
 
 ```bash
 # List available example servers
-fastmcp list
+fastjsmcp list
 
 # Run the calculator example
-fastmcp run --server calculator
+fastjsmcp run --server calculator
 
 # Run with custom options
-fastmcp run --server filesystem --transport stdio --log-level debug
+fastjsmcp run --server filesystem --transport stdio --log-level debug
 
 # Run on HTTP transport
-fastmcp run --server comprehensive --transport http --port 3000
+fastjsmcp run --server comprehensive --transport http --port 3000
 ```
 
 ### CLI Options
@@ -262,7 +262,7 @@ The repository includes several example servers:
 Run examples with:
 
 ```bash
-fastmcp run --server <example-name>
+fastjsmcp run --server <example-name>
 ```
 
 ## Development

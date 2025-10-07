@@ -9,9 +9,11 @@ import { ComprehensiveServer } from './examples/comprehensive.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
+import { spawn } from 'child_process';
 import { 
   validateServerFile, 
   getRuntime, 
+  checkTsxAvailable,
   isPortAvailable, 
   findAvailablePort, 
   loadConfigFile, 
@@ -24,6 +26,11 @@ import {
 } from './utils/inspector.js';
 const VERSION = '1.0.0';
 
+// 全局变量跟踪信号监听器状态
+let signalHandlersAdded = false;
+let currentFastMCP: FastMCP | null = null;
+let currentInspectorProcess: any = null;
+
 // Available server examples
 const SERVERS = {
   calculator: CalculatorServer,
@@ -33,7 +40,7 @@ const SERVERS = {
 };
 
 program
-  .name('fastmcp')
+  .name('fastjsmcp')
   .description('FastMCP - A fast and easy-to-use Model Context Protocol server')
   .version(VERSION)
   .argument('[file]', 'Server file path (e.g., ./calculator.js or ./calculator.ts)')
@@ -77,7 +84,7 @@ program
       console.log(`  ${name.padEnd(15)} - ${getServerDescription(name)}`);
     });
     console.log('');
-    console.log('Usage: fastmcp --server <type> or fastmcp run --server <type>');
+    console.log('Usage: fastjsmcp --server <type> or fastjsmcp run --server <type>');
   });
 
 program
@@ -159,8 +166,15 @@ async function runServer(file: string | undefined, options: any) {
           process.exit(1);
         }
 
+        // For TypeScript files, use child process with tsx runtime
+        if (ext === '.ts') {
+          console.log(`🚀 Running TypeScript server: ${filePath}`);
+          await runTypeScriptServer(filePath, options);
+          return;
+        }
+
         try {
-          // Dynamic import for ES modules and TypeScript files
+          // Dynamic import for ES modules and JavaScript files
           const fileUrl = pathToFileURL(filePath).href;
           const module = await import(fileUrl);
           
@@ -241,23 +255,149 @@ async function runServer(file: string | undefined, options: any) {
       console.log(`Starting ${serverName} (${serverType}) on ${options.transport}...`);
       await fastmcp.run();
       
-      // Handle graceful shutdown
-      process.on('SIGINT', async () => {
-        console.log('\nShutting down server...');
-        await fastmcp.stop();
-        process.exit(0);
-      });
+      // 保存当前实例引用
+      currentFastMCP = fastmcp;
       
-      process.on('SIGTERM', async () => {
-        console.log('\nShutting down server...');
-        await fastmcp.stop();
-        process.exit(0);
-      });
+      // Handle graceful shutdown - 只添加一次
+      if (!signalHandlersAdded) {
+        process.on('SIGINT', async () => {
+          console.log('\nShutting down server...');
+          if (currentFastMCP) {
+            await currentFastMCP.stop();
+            currentFastMCP = null;
+          }
+          process.exit(0);
+        });
+        
+        process.on('SIGTERM', async () => {
+          console.log('\nShutting down server...');
+          if (currentFastMCP) {
+            await currentFastMCP.stop();
+            currentFastMCP = null;
+          }
+          process.exit(0);
+        });
+        
+        signalHandlersAdded = true;
+      }
       
     } catch (error) {
       console.error('Failed to start server:', error);
       process.exit(1);
     }
+}
+
+/**
+ * Run TypeScript server using tsx runtime
+ */
+async function runTypeScriptServer(filePath: string, options: any): Promise<void> {
+  try {
+    // Check if tsx is available
+    const runtime = getRuntime(filePath);
+    console.log(`🔧 Checking runtime availability: ${runtime}`);
+    
+    const tsxCheck = await checkTsxAvailable();
+    if (!tsxCheck.available) {
+      console.error(`❌ ${tsxCheck.error}`);
+      console.error('\n💡 To install tsx globally:');
+      console.error('   npm install -g tsx');
+      console.error('   or');
+      console.error('   pnpm add -g tsx');
+      console.error('   or');
+      console.error('   yarn global add tsx');
+      process.exit(1);
+    }
+    
+    console.log(`✅ Runtime ${runtime} is available`);
+    
+    // Prepare environment variables
+    const env = {
+      ...process.env,
+      // Pass CLI options as environment variables for the server to use
+      FASTMCP_SERVER_NAME: options.name || path.basename(filePath, '.ts') + '-server',
+      FASTMCP_SERVER_VERSION: options.serverVersion || '1.0.0',
+      FASTMCP_TRANSPORT_TYPE: options.transport || 'stdio',
+      FASTMCP_TRANSPORT_PORT: options.port || '3000',
+      FASTMCP_TRANSPORT_HOST: options.host || 'localhost',
+      FASTMCP_LOG_LEVEL: options.logLevel || 'info',
+      FASTMCP_LOG_FORMAT: options.logFormat || 'simple',
+      FASTMCP_BASE_PATH: options.basePath || process.cwd(),
+    };
+
+    // Prepare arguments for tsx
+    const args = [filePath];
+    
+    console.log(`📝 Command: ${runtime} ${args.join(' ')}`);
+    console.log(`📁 Working directory: ${process.cwd()}`);
+    
+    // Spawn the TypeScript server process
+    const serverProcess = spawn(runtime, args, {
+      env,
+      stdio: 'inherit',
+      shell: true,
+    });
+
+    // Save current process reference
+    currentFastMCP = null; // We don't have a FastMCP instance in this case
+    currentInspectorProcess = serverProcess;
+
+    // Handle process events
+    serverProcess.on('error', (error) => {
+      if (error.message.includes('ENOENT')) {
+        console.error(`❌ Runtime '${runtime}' not found. Please install tsx:`);
+        console.error('   npm install -g tsx');
+        console.error('   or');
+        console.error('   pnpm add -g tsx');
+      } else {
+        console.error(`❌ Failed to start TypeScript server: ${error.message}`);
+      }
+      process.exit(1);
+    });
+
+    serverProcess.on('exit', (code, signal) => {
+      if (signal) {
+        console.log(`\n📋 Server process terminated by signal: ${signal}`);
+      } else if (code !== 0) {
+        console.error(`❌ Server process exited with code: ${code}`);
+        process.exit(code || 1);
+      } else {
+        console.log('\n✅ Server process exited successfully');
+      }
+      currentInspectorProcess = null;
+    });
+
+    // Setup signal handlers for graceful shutdown - only add once
+    if (!signalHandlersAdded) {
+      process.on('SIGINT', () => {
+        console.log('\n🛑 Shutting down TypeScript server...');
+        if (currentInspectorProcess) {
+          currentInspectorProcess.kill('SIGTERM');
+          currentInspectorProcess = null;
+        }
+        process.exit(0);
+      });
+      
+      process.on('SIGTERM', () => {
+        console.log('\n🛑 Shutting down TypeScript server...');
+        if (currentInspectorProcess) {
+          currentInspectorProcess.kill('SIGTERM');
+          currentInspectorProcess = null;
+        }
+        process.exit(0);
+      });
+      
+      signalHandlersAdded = true;
+    }
+
+    // Keep the process alive
+    await new Promise<void>((resolve) => {
+      serverProcess.on('exit', () => resolve());
+    });
+
+  } catch (error) {
+    console.error(`❌ Failed to run TypeScript server: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
 }
 
 /**
@@ -401,6 +541,9 @@ async function runInspector(file: string, options: any): Promise<void> {
       shell: true,
     });
     
+    // 保存当前进程引用
+    currentInspectorProcess = inspectorProcess;
+    
     let inspectorReady = false;
     const startTime = Date.now();
     
@@ -467,21 +610,34 @@ async function runInspector(file: string, options: any): Promise<void> {
       console.log('   - The inspector will automatically reload when you modify your server file');
       console.log('   - Check the browser console for any client-side errors');
       
-      // Keep the process running
-      process.on('SIGINT', () => {
-        console.log('\n🛑 Stopping inspector...');
-        inspectorProcess.kill('SIGTERM');
-        process.exit(0);
-      });
-      
-      process.on('SIGTERM', () => {
-        inspectorProcess.kill('SIGTERM');
-        process.exit(0);
-      });
+      // Keep the process running - 只添加一次监听器
+      if (!signalHandlersAdded) {
+        process.on('SIGINT', () => {
+          console.log('\n🛑 Stopping inspector...');
+          if (currentInspectorProcess) {
+            currentInspectorProcess.kill('SIGTERM');
+            currentInspectorProcess = null;
+          }
+          process.exit(0);
+        });
+        
+        process.on('SIGTERM', () => {
+          if (currentInspectorProcess) {
+            currentInspectorProcess.kill('SIGTERM');
+            currentInspectorProcess = null;
+          }
+          process.exit(0);
+        });
+        
+        signalHandlersAdded = true;
+      }
       
     } catch (error) {
        console.error(`❌ ${error instanceof Error ? error.message : String(error)}`);
-       inspectorProcess.kill('SIGTERM');
+       if (currentInspectorProcess) {
+         currentInspectorProcess.kill('SIGTERM');
+         currentInspectorProcess = null;
+       }
        process.exit(1);
      }
     

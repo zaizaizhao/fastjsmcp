@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import http from 'node:http';
 import type { Server as HttpServer } from 'node:http';
 import {
   CallToolRequestSchema,
@@ -41,13 +42,20 @@ import zodToJsonSchema from 'zod-to-json-schema';
 
 export class FastMCP {
   private server: Server;
+  private transport?: StdioServerTransport;
+  private httpServer?: http.Server;
   private registry: ServerRegistry;
-  private logger: Logger;
-  private options: FastMCPOptions;
-  private transport?: any;
-  private httpServer?: HttpServer;
   private isRunning = false;
   private shutdownPromise?: Promise<void>;
+  private logger: Logger;
+  private options: FastMCPOptions;
+  
+  // 添加信号监听器引用，避免重复添加
+  private signalHandlers: {
+    sigint?: () => void;
+    sigterm?: () => void;
+  } = {};
+  private signalListenersAdded = false;
 
   constructor(options: FastMCPOptions) {
     this.options = options;
@@ -382,9 +390,8 @@ export class FastMCP {
         this.isRunning = true;
         this.logger.info(`FastMCP server "${this.options.name}" started with ${transportOptions.type} transport`);
         
-        // 设置优雅关闭
-        process.on('SIGINT', () => this.gracefulShutdown());
-        process.on('SIGTERM', () => this.gracefulShutdown());
+        // 设置优雅关闭 - 只添加一次
+        this.setupSignalHandlers();
         return;
       }
       
@@ -404,14 +411,49 @@ export class FastMCP {
       this.isRunning = true;
       this.logger.info(`FastMCP server "${this.options.name}" started with ${transportOptions.type} transport`);
 
-      // 设置优雅关闭
-      process.on('SIGINT', () => this.gracefulShutdown());
-      process.on('SIGTERM', () => this.gracefulShutdown());
+      // 设置优雅关闭 - 只添加一次
+      this.setupSignalHandlers();
     } catch (error) {
       this.logger.error('Failed to start server:', error);
       this.isRunning = false;
       throw error;
     }
+  }
+
+  /**
+   * 设置信号处理器，避免重复添加
+   */
+  private setupSignalHandlers(): void {
+    if (this.signalListenersAdded) {
+      return; // 已经添加过了，避免重复
+    }
+
+    this.signalHandlers.sigint = () => this.gracefulShutdown();
+    this.signalHandlers.sigterm = () => this.gracefulShutdown();
+
+    process.on('SIGINT', this.signalHandlers.sigint);
+    process.on('SIGTERM', this.signalHandlers.sigterm);
+    
+    this.signalListenersAdded = true;
+  }
+
+  /**
+   * 移除信号处理器
+   */
+  private removeSignalHandlers(): void {
+    if (!this.signalListenersAdded) {
+      return;
+    }
+
+    if (this.signalHandlers.sigint) {
+      process.removeListener('SIGINT', this.signalHandlers.sigint);
+    }
+    if (this.signalHandlers.sigterm) {
+      process.removeListener('SIGTERM', this.signalHandlers.sigterm);
+    }
+
+    this.signalHandlers = {};
+    this.signalListenersAdded = false;
   }
 
   private resolveTransportOptions(): TransportOptions {
@@ -483,6 +525,9 @@ export class FastMCP {
     this.logger.info('Shutting down server...');
     this.isRunning = false;
     
+    // 移除信号监听器
+    this.removeSignalHandlers();
+    
     // 等待当前请求完成
     await new Promise(resolve => setTimeout(resolve, 1000));
     
@@ -491,7 +536,7 @@ export class FastMCP {
       await this.server.close();
       if (this.httpServer) {
         await new Promise<void>((resolve, reject) => {
-          this.httpServer?.close((error) => {
+          this.httpServer?.close((error: any) => {
             if (error) {
               reject(error);
               return;

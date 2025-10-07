@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "fastmcp": "dist/cli.js"
+    "fastjsmcp": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",

@@ -101,7 +101,7 @@ export function checkIfDirectRun(): boolean {
     const argv = process.argv;
     const isCliMode = argv.some(arg => 
       arg.includes('cli.js') || 
-      arg.includes('fastmcp') ||
+      arg.includes('fastjsmcp') ||
       arg.includes('dist/src/cli.js')
     );
     

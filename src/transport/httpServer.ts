@@ -61,13 +61,17 @@ function handleCommonEndpoints(
   return false;
 }
 
+// 跟踪信号监听器状态
+let signalHandlersSetup = false;
+let signalCleanupHandlers: (() => void)[] = [];
+
 /**
  * Sets up signal handlers for graceful shutdown
  */
 function setupCleanupHandlers(
   httpServer: http.Server,
   customCleanup?: () => void
-): void {
+): () => void {
   const cleanup = () => {
     console.log("\nClosing server...");
 
@@ -80,8 +84,32 @@ function setupCleanupHandlers(
     });
   };
 
-  process.on("SIGINT", cleanup);
-  process.on("SIGTERM", cleanup);
+  // 避免重复添加监听器
+  if (!signalHandlersSetup) {
+    process.on("SIGINT", cleanup);
+    process.on("SIGTERM", cleanup);
+    signalHandlersSetup = true;
+  }
+
+  // 返回清理函数
+  const removeHandlers = () => {
+    if (signalHandlersSetup) {
+      process.removeListener("SIGINT", cleanup);
+      process.removeListener("SIGTERM", cleanup);
+      signalHandlersSetup = false;
+    }
+  };
+
+  signalCleanupHandlers.push(removeHandlers);
+  return removeHandlers;
+}
+
+/**
+ * 清理所有信号监听器
+ */
+export function cleanupAllSignalHandlers(): void {
+  signalCleanupHandlers.forEach(cleanup => cleanup());
+  signalCleanupHandlers = [];
 }
 
 /**
@@ -109,35 +137,33 @@ export function createBaseHttpServer(
   endpoint: string,
   handlers: RequestHandlers
 ): http.Server {
-  const httpServer = http.createServer(async (req, res) => {
-    // Handle CORS for all requests （跨域）
+  const server = http.createServer(async (req, res) => {
     handleCORS(req, res);
 
-    // Handle OPTIONS requests
-    if (req.method === "OPTIONS") {
-      res.writeHead(204).end();
+    if (handleCommonEndpoints(req, res)) {
       return;
     }
 
-    // Handle common endpoints like health and ping （health check and ping test）
-    if (handleCommonEndpoints(req, res)) return;
-
-    // 生成接口
     try {
       await handlers.handleRequest(req, res);
     } catch (error) {
-      console.error(`Error in ${handlers.serverType} request handler:`, error);
-      res.writeHead(500).end("Internal Server Error");
+      console.error("Request handling error:", error);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Internal server error" }));
     }
   });
 
-  // Set up cleanup handlers
-  setupCleanupHandlers(httpServer, handlers.cleanup);
-
-  // Start listening and log server info
-  httpServer.listen(port, () => {
+  server.listen(port, () => {
     logServerStartup(handlers.serverType, port, endpoint);
   });
 
-  return httpServer;
+  // 设置清理处理器并保存清理函数
+  const cleanupHandler = setupCleanupHandlers(server, handlers.cleanup);
+
+  // 在服务器关闭时清理监听器
+  server.on('close', () => {
+    cleanupHandler();
+  });
+
+  return server;
 }

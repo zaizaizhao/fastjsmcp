@@ -102,7 +102,7 @@ export function getRuntime(filepath: string): string {
   
   switch (ext) {
     case '.ts':
-      // Check if tsx is available, otherwise use node with ts-node
+      // Use tsx for TypeScript files - it's faster and more reliable than ts-node
       return 'tsx';
     case '.mjs':
       return 'node';
@@ -111,6 +111,61 @@ export function getRuntime(filepath: string): string {
     case '.js':
     default:
       return 'node';
+  }
+}
+
+/**
+ * Check if tsx runtime is available
+ */
+export async function checkTsxAvailable(): Promise<{ available: boolean; error?: string }> {
+  try {
+    const { spawn } = await import('child_process');
+    
+    return new Promise((resolve) => {
+      const process = spawn('tsx', ['--version'], { 
+        stdio: 'pipe',
+        shell: true 
+      });
+      
+      let output = '';
+      process.stdout?.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      process.stderr?.on('data', (data) => {
+        output += data.toString();
+      });
+      
+      process.on('error', (error) => {
+        if (error.message.includes('ENOENT')) {
+          resolve({ 
+            available: false, 
+            error: 'tsx not found. Please install tsx: npm install -g tsx or pnpm add -g tsx' 
+          });
+        } else {
+          resolve({ 
+            available: false, 
+            error: `Failed to check tsx: ${error.message}` 
+          });
+        }
+      });
+      
+      process.on('exit', (code) => {
+        if (code === 0) {
+          resolve({ available: true });
+        } else {
+          resolve({ 
+            available: false, 
+            error: `tsx check failed with exit code ${code}: ${output}` 
+          });
+        }
+      });
+    });
+  } catch (error) {
+    return { 
+      available: false, 
+      error: `Failed to check tsx availability: ${error instanceof Error ? error.message : String(error)}` 
+    };
   }
 }
 
