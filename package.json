@@ -1,6 +1,6 @@
 {
   "name": "fastjsmcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Create a fully functional Model Context Protocol (MCP) server with just two decorators, supporting JavaScript/TypeScript",
   "type": "module",
   "main": "dist/src/index.js",
@@ -66,6 +66,11 @@
   "homepage": "",
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ]
 }
   
