@@ -19,11 +19,8 @@ export * from './utils/index.js';
 // Type exports
 export * from './types/index.js';
 
-// Example exports
-export { CalculatorServer } from './examples/calculator.js';
-export { FileSystemServer } from './examples/filesystem.js';
-export { PromptServer } from './examples/prompts.js';
-export { ComprehensiveServer } from './examples/comprehensive.js';
+// Example exports are now available in './examples/index.js'
+// To use examples: import { CalculatorServer, FileSystemServer } from 'fastjsmcp/examples';
 
 // Example usage:
 // import { FastMCP, tool, Schema } from 'fastmcp';

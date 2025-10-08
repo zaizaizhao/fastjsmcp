@@ -66,19 +66,43 @@ export function fastMcp(options: FastMcpDecoratorOptions): <T extends new (...ar
       }
 
       const argv = process.argv || [];
+      const mainModule = process.argv?.[1];
+      
+      // CLI detection - only detect actual fastmcp CLI usage
       const isCliMode = argv.some((arg) =>
         arg.includes('cli.js') ||
-        arg.includes('fastmcp') ||
         arg.includes('dist/src/cli.js')
+      ) || (mainModule && (
+        mainModule.includes('cli.js') ||
+        mainModule.includes('dist/src/cli.js')
+      ));
+
+      // Check if we're running from within node_modules (as a dependency)
+      const isRunningFromNodeModules = Boolean(
+        mainModule && mainModule.includes('node_modules')
       );
-      const mainModule = process.argv?.[1];
+
+      // Check if the target file is index.ts from fastjsmcp package itself (should not auto-start)
+      // Only block if it's actually the fastjsmcp package's own index.ts file
+      const isFastjsmcpPackageIndexFile = Boolean(
+        mainModule && 
+        mainModule.includes('index.ts') && 
+        (mainModule.includes('node_modules/fastjsmcp') || 
+         (mainModule.includes('fastjsmcp') && mainModule.includes('src/index.ts')))
+      );
+
+      // Direct execution detection - allow user project files to auto-start
       const isDirectExecution = Boolean(
         mainModule &&
         (mainModule.endsWith('.ts') || mainModule.endsWith('.js')) &&
-        !mainModule.includes('node_modules')
+        !isRunningFromNodeModules
       );
 
-      if (!isCliMode && isDirectExecution) {
+      // Only auto-start if:
+      // 1. Not in CLI mode (not run through fastmcp CLI)
+      // 2. Direct execution (user running their own file)
+      // 3. Not the fastjsmcp package's own index.ts file
+      if (!isCliMode && isDirectExecution && !isFastjsmcpPackageIndexFile) {
         setTimeout(() => {
           // Automatically instantiate when the module is executed directly (e.g., via tsx)
           new FastMcpServer();

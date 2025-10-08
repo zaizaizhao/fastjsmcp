@@ -251,7 +251,9 @@ export class FastMCP {
       const tools = Array.from(this.registry.tools.values()).map(tool => ({
         name: tool.name,
         description: tool.schema.description,
-        inputSchema: this.zodToJsonSchema(tool.schema.inputSchema),
+        inputSchema: tool.schema.inputSchema 
+          ? this.zodToJsonSchema(tool.schema.inputSchema)
+          : { type: 'object', properties: {} }, // 提供默认的空对象 schema
       }));
 
       return { tools };
@@ -267,8 +269,10 @@ export class FastMCP {
       }
 
       try {
-        // Validate arguments using Zod schema
-        const validatedArgs = tool.schema.inputSchema.parse(args || {});
+        // Validate arguments using Zod schema if it exists
+        const validatedArgs = tool.schema.inputSchema 
+          ? tool.schema.inputSchema.parse(args || {})
+          : (args || {});
 
         // Create execution context
         const context: ExecutionContext = {
@@ -365,7 +369,13 @@ export class FastMCP {
 
   private zodToJsonSchema(schema: any): any {
     // Use the zodToJsonSchema function from utils (now using zod-to-json-schema library)
-    return zodToJsonSchema(schema);
+    try {
+      return zodToJsonSchema(schema);
+    } catch (error) {
+      this.logger.error('Error converting Zod schema to JSON schema:', error);
+      // Return a basic schema as fallback
+      return { type: 'object' };
+    }
   }
 
   async run(): Promise<void> {
@@ -377,9 +387,7 @@ export class FastMCP {
       // 使用配置化的传输层，默认为 stdio，并支持环境变量覆盖
       const transportOptions = this.resolveTransportOptions();
       
-      if (transportOptions.type === TransportType.Streamable) {
-        console.log(this.server);
-        
+      if (transportOptions.type === TransportType.Streamable) {        
         this.httpServer = await startStreamableMcpServer(
           this.server,
           transportOptions.endpoint || '/mcp',

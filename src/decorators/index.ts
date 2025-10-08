@@ -40,7 +40,7 @@ export function tool(config: ToolDecoratorOptions): any {
       const toolName = config.name || target.name || `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const toolSchema: ToolSchema = {
         description: config.description || `Tool: ${toolName}`,
-        inputSchema: config.inputSchema || z.any(),
+        ...(config.inputSchema && { inputSchema: config.inputSchema }),
       };
       
       // If global instance is available, register immediately
@@ -60,7 +60,7 @@ export function tool(config: ToolDecoratorOptions): any {
         description: config.description,
         schema: {
           description: config.description || '',
-          inputSchema: config.inputSchema || z.any(),
+          ...(config.inputSchema && { inputSchema: config.inputSchema }),
         },
         handler: descriptor.value,
       };
