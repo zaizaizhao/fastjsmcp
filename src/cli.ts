@@ -310,9 +310,11 @@ async function runTypeScriptServer(filePath: string, options: any): Promise<void
     
     console.log(`✅ Runtime ${runtime} is available`);
     
-    // Prepare environment variables
+    // Prepare environment variables - set CLI flags before running
     const env = {
       ...process.env,
+      // Signal to @fastMcp decorator that this is CLI execution
+      FASTMCP_CLI_AUTO_INSTANTIATE: 'true',
       // Pass CLI options as environment variables for the server to use
       FASTMCP_SERVER_NAME: options.name || path.basename(filePath, '.ts') + '-server',
       FASTMCP_SERVER_VERSION: options.serverVersion || '1.0.0',
@@ -324,7 +326,9 @@ async function runTypeScriptServer(filePath: string, options: any): Promise<void
       FASTMCP_BASE_PATH: options.basePath || process.cwd(),
     };
 
-    // Prepare arguments for tsx
+    console.log(`🚀 FastMCP CLI: Running TypeScript server directly...`);
+
+    // Prepare arguments for tsx to run the file directly
     const args = [filePath];
     
     console.log(`📝 Command: ${runtime} ${args.join(' ')}`);

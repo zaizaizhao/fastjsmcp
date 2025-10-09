@@ -75,7 +75,7 @@ export function fastMcp(options: FastMcpDecoratorOptions): <T extends new (...ar
       ) || (mainModule && (
         mainModule.includes('cli.js') ||
         mainModule.includes('dist/src/cli.js')
-      ));
+      )) || process.env.FASTMCP_CLI_AUTO_INSTANTIATE === 'true';
 
       // Check if we're running from within node_modules (as a dependency)
       const isRunningFromNodeModules = Boolean(
@@ -102,7 +102,11 @@ export function fastMcp(options: FastMcpDecoratorOptions): <T extends new (...ar
       // 1. Not in CLI mode (not run through fastmcp CLI)
       // 2. Direct execution (user running their own file)
       // 3. Not the fastjsmcp package's own index.ts file
-      if (!isCliMode && isDirectExecution && !isFastjsmcpPackageIndexFile) {
+      // 4. CLI auto-instantiate is enabled (for CLI mode)
+      const shouldAutoStart = (!isCliMode && isDirectExecution && !isFastjsmcpPackageIndexFile) ||
+                             (isCliMode && process.env.FASTMCP_CLI_AUTO_INSTANTIATE === 'true');
+      
+      if (shouldAutoStart) {
         setTimeout(() => {
           // Automatically instantiate when the module is executed directly (e.g., via tsx)
           new FastMcpServer();
